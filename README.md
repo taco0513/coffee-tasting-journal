@@ -1,97 +1,88 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Coffee Tasting Journal
 
-# Getting Started
+A comprehensive mobile app for coffee enthusiasts to record, analyze, and track their coffee tasting experiences with AI-powered flavor matching.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## 🚀 Features
 
-## Step 1: Start Metro
+- **6-Step Tasting Flow**: Systematic coffee evaluation process
+- **AI-Powered Matching**: Intelligent comparison between roaster notes and user selections
+- **Flavor Wheel Integration**: Based on SCA (Specialty Coffee Association) flavor wheel
+- **Bilingual Support**: Korean and English language support
+- **Local Storage**: Offline-first with Realm database
+- **Match Scoring**: Sophisticated algorithm combining flavor (60%) and sensory (40%) attributes
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## 📱 Screenshots
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+*Coming soon...*
 
-```sh
-# Using npm
-npm start
+## 🛠️ Tech Stack
 
-# OR using Yarn
-yarn start
+- **Frontend**: React Native with TypeScript
+- **State Management**: Zustand
+- **Database**: Realm (Local-first)
+- **Navigation**: React Navigation
+- **Animation**: React Native Reanimated
+- **Platform**: iOS & Android
+
+## 🚀 Quick Start
+
+```bash
+# Install dependencies
+npm install
+
+# iOS
+npx react-native run-ios
+
+# Android
+npx react-native run-android
 ```
 
-## Step 2: Build and run your app
+## 📚 Documentation
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+- [Features](./FEATURES.md) - Detailed feature specifications
+- [Tech Stack](./TECH-STACK.md) - Technical implementation details
+- [Setup Guide](./docs/04-SETUP.md) - Development environment setup
+- [Architecture](./docs/05-ARCHITECTURE.md) - System architecture overview
 
-### Android
+## 🔄 Workflow
 
-```sh
-# Using npm
-npm run android
+1. **Coffee Info** → Enter basic coffee details
+2. **Roaster Notes** → Input roaster's flavor descriptions
+3. **Flavor Selection** → 4-level hierarchical flavor selection
+4. **Sensory Evaluation** → Rate body, acidity, sweetness, finish, mouthfeel
+5. **Results** → View match score and detailed analysis
 
-# OR using Yarn
-yarn android
-```
+## 🎯 Match Algorithm
 
-### iOS
+- **Flavor Matching (60%)**: Compares roaster notes with user selections
+- **Sensory Matching (40%)**: Evaluates sensory attribute alignment
+- **Score Range**: 0-100% matching accuracy
+- **Bilingual Processing**: Supports Korean and English terms
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+## 📊 Key Metrics
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+- **Match Score**: Overall tasting accuracy
+- **Flavor Score**: Flavor profile matching
+- **Sensory Score**: Sensory attribute alignment
+- **Historical Tracking**: View past tasting performance
 
-```sh
-bundle install
-```
+## 🔧 Development
 
-Then, and every time you update your native dependencies, run:
+This project uses:
+- React Native 0.72+
+- TypeScript for type safety
+- Zustand for state management
+- Realm for local data persistence
+- SCA flavor wheel for standardized flavor terminology
 
-```sh
-bundle exec pod install
-```
+## 📄 License
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+MIT License - see [LICENSE](./LICENSE) for details
 
-```sh
-# Using npm
-npm run ios
+## 🤝 Contributing
 
-# OR using Yarn
-yarn ios
-```
+Contributions are welcome! Please read our contributing guidelines and submit pull requests.
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+## 📞 Support
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+For support, please open an issue in the GitHub repository or contact the development team.

@@ -1,0 +1,17 @@
+[
+  { "input": "딸기 요거트", "canonical": "Creamy", "lang": "ko" },
+  { "input": "nutella", "canonical": "Chocolate", "lang": "en" },
+  { "input": "청포도", "canonical": "Grape", "lang": "ko" },
+  { "input": "rose jam", "canonical": "Rose", "lang": "en" },
+  { "input": "사과식초", "canonical": "Acetic Acid", "lang": "ko" },
+  { "input": "mango lassi", "canonical": "Mango", "lang": "en" },
+  { "input": "말차", "canonical": "Green Tea", "lang": "ko" },
+  { "input": "orange zest", "canonical": "Orange", "lang": "en" },
+  { "input": "흑설탕", "canonical": "Brown Sugar", "lang": "ko" },
+  { "input": "peanut butter", "canonical": "Peanut", "lang": "en" },
+  { "input": "솔잎", "canonical": "Pine", "lang": "ko" },
+  { "input": "fig jam", "canonical": "Fig", "lang": "en" },
+  { "input": "흑미", "canonical": "Roasted Grain", "lang": "ko" },
+  { "input": "white chocolate", "canonical": "White Chocolate", "lang": "en" },
+  { "input": "참깨", "canonical": "Sesame", "lang": "ko" }
+]
