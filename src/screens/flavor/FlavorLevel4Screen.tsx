@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,44 +9,57 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTastingStore } from '../../stores/tastingStore';
-import { flavorWheel } from '../../data/flavorWheel';
+import { flavorLevel4 } from '../../data/flavorWheel';
 
-const FlavorLevel2Screen = () => {
+const FlavorLevel4Screen = () => {
   const navigation = useNavigation();
   const { selectedFlavors, setFlavorLevel } = useTastingStore();
-  const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>(
-    selectedFlavors?.level2 || []
+  const [selectedDescriptors, setSelectedDescriptors] = useState<string[]>(
+    selectedFlavors?.level4 || []
   );
 
-  // Group subcategories by their parent category
-  const categorizedSubcategories = selectedFlavors.level1.reduce((acc, category) => {
-    const subcategories = flavorWheel[category as keyof typeof flavorWheel] || [];
-    if (subcategories.length > 0) {
-      acc[category] = subcategories;
+  // Group descriptors by their parent level3 item
+  const categorizedDescriptors = selectedFlavors.level3.reduce((acc, level3Item) => {
+    const descriptors = flavorLevel4[level3Item as keyof typeof flavorLevel4] || [];
+    if (descriptors.length > 0) {
+      acc[level3Item] = descriptors;
     }
     return acc;
   }, {} as Record<string, string[]>);
 
-  const handleSubcategoryPress = (subcategory: string) => {
-    setSelectedSubcategories(prev => {
-      if (prev.includes(subcategory)) {
-        return prev.filter(c => c !== subcategory);
+  // Check if there are any descriptors available
+  const hasDescriptors = Object.keys(categorizedDescriptors).length > 0;
+
+  useEffect(() => {
+    // If no descriptors exist, skip to Sensory screen
+    if (!hasDescriptors) {
+      navigation.navigate('Sensory' as never);
+    }
+  }, [hasDescriptors, navigation]);
+
+  const handleDescriptorPress = (descriptor: string) => {
+    setSelectedDescriptors(prev => {
+      if (prev.includes(descriptor)) {
+        return prev.filter(d => d !== descriptor);
       } else {
-        return [...prev, subcategory];
+        return [...prev, descriptor];
       }
     });
   };
 
   const handleNext = () => {
-    setFlavorLevel(2, selectedSubcategories);
-    navigation.navigate('FlavorLevel3' as never);
+    setFlavorLevel(4, selectedDescriptors);
+    navigation.navigate('Sensory' as never);
   };
 
   const handleSkip = () => {
     navigation.navigate('Sensory' as never);
   };
 
-  const isNextEnabled = selectedSubcategories.length > 0;
+  // Don't render if no descriptors available
+  if (!hasDescriptors) {
+    return null;
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -60,37 +73,37 @@ const FlavorLevel2Screen = () => {
         <View style={styles.progressDot} />
         <View style={styles.progressDot} />
         <View style={styles.progressDot} />
+        <View style={styles.progressDot} />
+        <View style={styles.progressDot} />
         <View style={[styles.progressDot, styles.activeDot]} />
-        <View style={styles.progressDot} />
-        <View style={styles.progressDot} />
       </View>
 
       {/* Title */}
-      <Text style={styles.title}>플레이버 선택 (Level 2)</Text>
-      <Text style={styles.subtitle}>세부 맛을 선택하세요</Text>
+      <Text style={styles.title}>플레이버 선택 (Level 4)</Text>
+      <Text style={styles.subtitle}>맛의 특성을 선택하세요 (선택사항)</Text>
 
-      {/* Subcategories by Category */}
+      {/* Descriptors by category */}
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {Object.entries(categorizedSubcategories).map(([category, subcategories]) => (
+        {Object.entries(categorizedDescriptors).map(([category, descriptors]) => (
           <View key={category} style={styles.categorySection}>
-            <Text style={styles.sectionHeader}>{category} 하위</Text>
+            <Text style={styles.sectionHeader}>{category} 특성</Text>
             <View style={styles.gridContainer}>
-              {subcategories.map((subcategory) => (
+              {descriptors.map((descriptor) => (
                 <TouchableOpacity
-                  key={subcategory}
+                  key={descriptor}
                   style={[
-                    styles.categoryButton,
-                    selectedSubcategories.includes(subcategory) && styles.selectedButton,
+                    styles.descriptorButton,
+                    selectedDescriptors.includes(descriptor) && styles.selectedButton,
                   ]}
-                  onPress={() => handleSubcategoryPress(subcategory)}
+                  onPress={() => handleDescriptorPress(descriptor)}
                 >
                   <Text
                     style={[
-                      styles.categoryText,
-                      selectedSubcategories.includes(subcategory) && styles.selectedText,
+                      styles.descriptorText,
+                      selectedDescriptors.includes(descriptor) && styles.selectedText,
                     ]}
                   >
-                    {subcategory}
+                    {descriptor}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -99,21 +112,12 @@ const FlavorLevel2Screen = () => {
         ))}
       </ScrollView>
 
-      {/* Next Button */}
+      {/* Next Button - Always enabled since selections are optional */}
       <TouchableOpacity
-        style={[
-          styles.button,
-          !isNextEnabled && styles.disabledButton,
-        ]}
+        style={styles.button}
         onPress={handleNext}
-        disabled={!isNextEnabled}
       >
-        <Text
-          style={[
-            styles.buttonText,
-            !isNextEnabled && styles.disabledButtonText,
-          ]}
-        >
+        <Text style={styles.buttonText}>
           다음
         </Text>
       </TouchableOpacity>
@@ -186,7 +190,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     marginHorizontal: -6,
   },
-  categoryButton: {
+  descriptorButton: {
     backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#e0e0e0',
@@ -199,7 +203,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
     borderColor: '#000',
   },
-  categoryText: {
+  descriptorText: {
     fontSize: 16,
     fontWeight: '500',
     color: '#000',
@@ -215,17 +219,11 @@ const styles = StyleSheet.create({
     marginBottom: 40,
     marginTop: 20,
   },
-  disabledButton: {
-    backgroundColor: '#e0e0e0',
-  },
   buttonText: {
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
   },
-  disabledButtonText: {
-    color: '#999',
-  },
 });
 
-export default FlavorLevel2Screen;
+export default FlavorLevel4Screen;

@@ -9,6 +9,10 @@ import CoffeeInfoScreen from '../screens/CoffeeInfoScreen';
 import RoasterNotesScreen from '../screens/RoasterNotesScreen';
 import FlavorLevel1Screen from '../screens/flavor/FlavorLevel1Screen';
 import FlavorLevel2Screen from '../screens/flavor/FlavorLevel2Screen';
+import FlavorLevel3Screen from '../screens/flavor/FlavorLevel3Screen';
+import FlavorLevel4Screen from '../screens/flavor/FlavorLevel4Screen';
+import SensoryScreen from '../screens/SensoryScreen';
+import ResultScreen from '../screens/ResultScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -65,6 +69,34 @@ function AppNavigator() {
           component={FlavorLevel2Screen}
           options={{
             title: '세부 맛 선택',
+          }}
+        />
+        <Stack.Screen
+          name="FlavorLevel3"
+          component={FlavorLevel3Screen}
+          options={{
+            title: '구체적인 맛',
+          }}
+        />
+        <Stack.Screen
+          name="FlavorLevel4"
+          component={FlavorLevel4Screen}
+          options={{
+            title: '맛 특성',
+          }}
+        />
+        <Stack.Screen
+          name="Sensory"
+          component={SensoryScreen}
+          options={{
+            title: '감각 평가',
+          }}
+        />
+        <Stack.Screen
+          name="Result"
+          component={ResultScreen}
+          options={{
+            title: '테이스팅 결과',
           }}
         />
       </Stack.Navigator>

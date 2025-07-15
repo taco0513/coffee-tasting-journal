@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTastingStore } from '../../stores/tastingStore';
+import { flavorWheelKorean } from '../../data/flavorWheelKorean';
 
 const FlavorLevel1Screen = () => {
   const navigation = useNavigation();
@@ -75,6 +76,14 @@ const FlavorLevel1Screen = () => {
               ]}
             >
               {category}
+            </Text>
+            <Text
+              style={[
+                styles.categorySubtext,
+                selectedCategories.includes(category) && styles.selectedText,
+              ]}
+            >
+              ({flavorWheelKorean.level1[category as keyof typeof flavorWheelKorean.level1]})
             </Text>
           </TouchableOpacity>
         ))}
@@ -170,6 +179,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#000',
     textAlign: 'center',
+  },
+  categorySubtext: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 2,
   },
   selectedText: {
     color: '#fff',

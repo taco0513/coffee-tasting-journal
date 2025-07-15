@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { calculateMatchScore } from '../utils/matching';
 
 // TypeScript types for the tasting data
 export interface CoffeeInfo {
@@ -20,11 +21,35 @@ export interface SelectedFlavors {
   level4: string[];
 }
 
+export interface SensoryAttributes {
+  body: number;
+  acidity: number;
+  sweetness: number;
+  finish: number;
+  mouthfeel: 'Clean' | 'Creamy' | 'Juicy' | 'Silky';
+}
+
+export interface TastingRecord {
+  id: string;
+  timestamp: string;
+  coffeeInfo: CoffeeInfo;
+  roasterNotes: string;
+  selectedFlavors: SelectedFlavors;
+  sensoryAttributes: SensoryAttributes;
+  matchScore: {
+    total: number;
+    flavorScore: number;
+    sensoryScore: number;
+  };
+}
+
 export interface TastingState {
   currentTasting: CoffeeInfo;
   currentStep: number;
   selectedFlavors: SelectedFlavors;
   roasterNotes: string;
+  sensoryAttributes: SensoryAttributes;
+  currentMatchScore: number;
 }
 
 export interface TastingActions {
@@ -34,6 +59,8 @@ export interface TastingActions {
   setFlavorLevel: (level: number, flavors: string[]) => void;
   clearFlavors: () => void;
   setRoasterNotes: (notes: string) => void;
+  updateSensoryAttributes: (attributes: Partial<SensoryAttributes>) => void;
+  saveTasting: () => TastingRecord;
   // Deprecated - use setFlavorLevel instead
   setFlavorLevel1: (flavors: string[]) => void;
 }
@@ -60,11 +87,21 @@ const initialSelectedFlavors: SelectedFlavors = {
   level4: [],
 };
 
+const initialSensoryAttributes: SensoryAttributes = {
+  body: 3,
+  acidity: 3,
+  sweetness: 3,
+  finish: 3,
+  mouthfeel: 'Clean',
+};
+
 const initialState: TastingState = {
   currentTasting: initialCoffeeInfo,
   currentStep: 1,
   selectedFlavors: initialSelectedFlavors,
   roasterNotes: '',
+  sensoryAttributes: initialSensoryAttributes,
+  currentMatchScore: 0,
 };
 
 // Create the Zustand store
@@ -97,6 +134,43 @@ export const useTastingStore = create<TastingStore>((set) => ({
   
   setRoasterNotes: (notes: string) =>
     set({ roasterNotes: notes }),
+  
+  updateSensoryAttributes: (attributes: Partial<SensoryAttributes>) =>
+    set((state) => ({
+      sensoryAttributes: {
+        ...state.sensoryAttributes,
+        ...attributes,
+      },
+    })),
+  
+  saveTasting: () => {
+    const state = useTastingStore.getState();
+    const matchScore = calculateMatchScore(
+      state.roasterNotes,
+      state.selectedFlavors,
+      state.sensoryAttributes
+    );
+    
+    const tastingRecord: TastingRecord = {
+      id: `tasting_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      coffeeInfo: state.currentTasting,
+      roasterNotes: state.roasterNotes,
+      selectedFlavors: state.selectedFlavors,
+      sensoryAttributes: state.sensoryAttributes,
+      matchScore,
+    };
+    
+    // Save to storage (console.log for now)
+    console.log('Saving tasting record:', tastingRecord);
+    
+    // Update current match score
+    set({ currentMatchScore: matchScore.total });
+    
+    // TODO: Implement actual storage (AsyncStorage, SQLite, etc.)
+    
+    return tastingRecord;
+  },
   
   // Deprecated - use setFlavorLevel instead
   setFlavorLevel1: (flavors: string[]) =>

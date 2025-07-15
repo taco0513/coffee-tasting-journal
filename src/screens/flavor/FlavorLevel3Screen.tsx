@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,44 +9,59 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTastingStore } from '../../stores/tastingStore';
-import { flavorWheel } from '../../data/flavorWheel';
+import { flavorLevel3 } from '../../data/flavorWheel';
 
-const FlavorLevel2Screen = () => {
+const FlavorLevel3Screen = () => {
   const navigation = useNavigation();
   const { selectedFlavors, setFlavorLevel } = useTastingStore();
-  const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>(
-    selectedFlavors?.level2 || []
+  const [selectedLevel3, setSelectedLevel3] = useState<string[]>(
+    selectedFlavors?.level3 || []
   );
 
-  // Group subcategories by their parent category
-  const categorizedSubcategories = selectedFlavors.level1.reduce((acc, category) => {
-    const subcategories = flavorWheel[category as keyof typeof flavorWheel] || [];
-    if (subcategories.length > 0) {
-      acc[category] = subcategories;
+  // Group level3 options by their parent level2 category
+  const categorizedLevel3 = selectedFlavors.level2.reduce((acc, level2Item) => {
+    const level3Options = flavorLevel3[level2Item as keyof typeof flavorLevel3] || [];
+    if (level3Options.length > 0) {
+      acc[level2Item] = level3Options;
     }
     return acc;
   }, {} as Record<string, string[]>);
 
-  const handleSubcategoryPress = (subcategory: string) => {
-    setSelectedSubcategories(prev => {
-      if (prev.includes(subcategory)) {
-        return prev.filter(c => c !== subcategory);
+  // Check if there are any level3 options available
+  const hasLevel3Options = Object.keys(categorizedLevel3).length > 0;
+
+  useEffect(() => {
+    // If no level3 options exist, skip to Sensory screen
+    if (!hasLevel3Options) {
+      navigation.navigate('Sensory' as never);
+    }
+  }, [hasLevel3Options, navigation]);
+
+  const handleLevel3Press = (item: string) => {
+    setSelectedLevel3(prev => {
+      if (prev.includes(item)) {
+        return prev.filter(i => i !== item);
       } else {
-        return [...prev, subcategory];
+        return [...prev, item];
       }
     });
   };
 
   const handleNext = () => {
-    setFlavorLevel(2, selectedSubcategories);
-    navigation.navigate('FlavorLevel3' as never);
+    setFlavorLevel(3, selectedLevel3);
+    navigation.navigate('FlavorLevel4' as never);
   };
 
   const handleSkip = () => {
     navigation.navigate('Sensory' as never);
   };
 
-  const isNextEnabled = selectedSubcategories.length > 0;
+  const isNextEnabled = selectedLevel3.length > 0;
+
+  // Don't render if no options available
+  if (!hasLevel3Options) {
+    return null;
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -60,37 +75,37 @@ const FlavorLevel2Screen = () => {
         <View style={styles.progressDot} />
         <View style={styles.progressDot} />
         <View style={styles.progressDot} />
-        <View style={[styles.progressDot, styles.activeDot]} />
         <View style={styles.progressDot} />
+        <View style={[styles.progressDot, styles.activeDot]} />
         <View style={styles.progressDot} />
       </View>
 
       {/* Title */}
-      <Text style={styles.title}>플레이버 선택 (Level 2)</Text>
-      <Text style={styles.subtitle}>세부 맛을 선택하세요</Text>
+      <Text style={styles.title}>플레이버 선택 (Level 3)</Text>
+      <Text style={styles.subtitle}>구체적인 맛을 선택하세요</Text>
 
-      {/* Subcategories by Category */}
+      {/* Level3 options by category */}
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {Object.entries(categorizedSubcategories).map(([category, subcategories]) => (
+        {Object.entries(categorizedLevel3).map(([category, items]) => (
           <View key={category} style={styles.categorySection}>
             <Text style={styles.sectionHeader}>{category} 하위</Text>
             <View style={styles.gridContainer}>
-              {subcategories.map((subcategory) => (
+              {items.map((item) => (
                 <TouchableOpacity
-                  key={subcategory}
+                  key={item}
                   style={[
-                    styles.categoryButton,
-                    selectedSubcategories.includes(subcategory) && styles.selectedButton,
+                    styles.itemButton,
+                    selectedLevel3.includes(item) && styles.selectedButton,
                   ]}
-                  onPress={() => handleSubcategoryPress(subcategory)}
+                  onPress={() => handleLevel3Press(item)}
                 >
                   <Text
                     style={[
-                      styles.categoryText,
-                      selectedSubcategories.includes(subcategory) && styles.selectedText,
+                      styles.itemText,
+                      selectedLevel3.includes(item) && styles.selectedText,
                     ]}
                   >
-                    {subcategory}
+                    {item}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -186,7 +201,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     marginHorizontal: -6,
   },
-  categoryButton: {
+  itemButton: {
     backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#e0e0e0',
@@ -199,7 +214,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
     borderColor: '#000',
   },
-  categoryText: {
+  itemText: {
     fontSize: 16,
     fontWeight: '500',
     color: '#000',
@@ -228,4 +243,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default FlavorLevel2Screen;
+export default FlavorLevel3Screen;
