@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { calculateMatchScore } from '../utils/matching';
+import { realmService } from '../services/realm';
+import { ITastingRecord } from '../services/realm/schemas';
 
 // TypeScript types for the tasting data
 export interface CoffeeInfo {
@@ -50,6 +52,9 @@ export interface TastingState {
   roasterNotes: string;
   sensoryAttributes: SensoryAttributes;
   currentMatchScore: number;
+  recentTastings: ITastingRecord[];
+  isLoading: boolean;
+  error: string | null;
 }
 
 export interface TastingActions {
@@ -61,6 +66,10 @@ export interface TastingActions {
   setRoasterNotes: (notes: string) => void;
   updateSensoryAttributes: (attributes: Partial<SensoryAttributes>) => void;
   saveTasting: () => TastingRecord;
+  completeTasting: () => Promise<{ success: boolean; error?: string; record?: ITastingRecord }>;
+  loadRecentTastings: () => Promise<void>;
+  initializeRealm: () => Promise<void>;
+  clearAllTastings: () => Promise<void>;
   // Deprecated - use setFlavorLevel instead
   setFlavorLevel1: (flavors: string[]) => void;
 }
@@ -102,6 +111,9 @@ const initialState: TastingState = {
   roasterNotes: '',
   sensoryAttributes: initialSensoryAttributes,
   currentMatchScore: 0,
+  recentTastings: [],
+  isLoading: false,
+  error: null,
 };
 
 // Create the Zustand store
@@ -144,6 +156,7 @@ export const useTastingStore = create<TastingStore>((set) => ({
     })),
   
   saveTasting: () => {
+    // Deprecated - use completeTasting instead
     const state = useTastingStore.getState();
     const matchScore = calculateMatchScore(
       state.roasterNotes,
@@ -161,15 +174,189 @@ export const useTastingStore = create<TastingStore>((set) => ({
       matchScore,
     };
     
-    // Save to storage (console.log for now)
-    console.log('Saving tasting record:', tastingRecord);
-    
-    // Update current match score
     set({ currentMatchScore: matchScore.total });
-    
-    // TODO: Implement actual storage (AsyncStorage, SQLite, etc.)
-    
     return tastingRecord;
+  },
+
+  completeTasting: async () => {
+    const state = useTastingStore.getState();
+    
+    // Set loading state
+    set({ isLoading: true, error: null });
+    
+    try {
+      // Ensure Realm is initialized
+      await useTastingStore.getState().initializeRealm();
+      
+      // Calculate match score
+      const matchScore = calculateMatchScore(
+        state.roasterNotes,
+        state.selectedFlavors,
+        state.sensoryAttributes
+      );
+      
+      // Prepare data for saving
+      const tastingData = {
+        coffeeInfo: {
+          cafeName: state.currentTasting.cafeName || undefined,
+          roastery: state.currentTasting.roastery,
+          coffeeName: state.currentTasting.coffeeName,
+          origin: state.currentTasting.origin || undefined,
+          variety: state.currentTasting.variety || undefined,
+          altitude: state.currentTasting.altitude || undefined,
+          process: state.currentTasting.process || undefined,
+          temperature: state.currentTasting.temperature,
+        },
+        roasterNotes: state.roasterNotes || undefined,
+        selectedFlavors: state.selectedFlavors,
+        sensoryAttributes: state.sensoryAttributes,
+        matchScore: {
+          total: matchScore.total,
+          flavorScore: matchScore.flavorScore,
+          sensoryScore: matchScore.sensoryScore,
+        },
+      };
+      
+      // Save to Realm
+      const savedRecord = await realmService.saveTasting(tastingData);
+      
+      // Update state
+      set({ 
+        currentMatchScore: matchScore.total,
+        isLoading: false,
+        error: null,
+      });
+      
+      // Reload recent tastings
+      await useTastingStore.getState().loadRecentTastings();
+      
+      console.log('Tasting completed and saved:', savedRecord.id);
+      
+      return {
+        success: true,
+        record: savedRecord,
+      };
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save tasting';
+      console.error('Error completing tasting:', error);
+      
+      set({ 
+        isLoading: false,
+        error: errorMessage,
+      });
+      
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    }
+  },
+
+  loadRecentTastings: async () => {
+    set({ isLoading: true, error: null });
+    
+    try {
+      // Ensure Realm is initialized
+      await useTastingStore.getState().initializeRealm();
+      
+      // Load recent tastings
+      const recentTastings = realmService.getRecentTastings(10);
+      
+      // Convert Realm objects to plain objects for state
+      const tastings = recentTastings.map(record => ({
+        id: record.id,
+        userId: record.userId,
+        createdAt: record.createdAt,
+        updatedAt: record.updatedAt,
+        syncedAt: record.syncedAt,
+        cafeName: record.cafeName,
+        roastery: record.roastery,
+        coffeeName: record.coffeeName,
+        origin: record.origin,
+        variety: record.variety,
+        altitude: record.altitude,
+        process: record.process,
+        temperature: record.temperature,
+        roasterNotes: record.roasterNotes,
+        matchScoreTotal: record.matchScoreTotal,
+        matchScoreFlavor: record.matchScoreFlavor,
+        matchScoreSensory: record.matchScoreSensory,
+        flavorNotes: record.flavorNotes.map(note => ({
+          level: note.level,
+          value: note.value,
+          koreanValue: note.koreanValue,
+        })),
+        sensoryAttribute: {
+          body: record.sensoryAttribute.body,
+          acidity: record.sensoryAttribute.acidity,
+          sweetness: record.sensoryAttribute.sweetness,
+          finish: record.sensoryAttribute.finish,
+          mouthfeel: record.sensoryAttribute.mouthfeel,
+        },
+        isSynced: record.isSynced,
+        isDeleted: record.isDeleted,
+      }));
+      
+      set({ 
+        recentTastings: tastings,
+        isLoading: false,
+        error: null,
+      });
+      
+      console.log(`Loaded ${tastings.length} recent tastings`);
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load recent tastings';
+      console.error('Error loading recent tastings:', error);
+      
+      set({ 
+        recentTastings: [],
+        isLoading: false,
+        error: errorMessage,
+      });
+    }
+  },
+
+  initializeRealm: async () => {
+    try {
+      await realmService.initialize();
+      console.log('Realm initialized from store');
+    } catch (error) {
+      console.error('Failed to initialize Realm from store:', error);
+      throw error;
+    }
+  },
+
+  clearAllTastings: async () => {
+    set({ isLoading: true, error: null });
+    
+    try {
+      // Ensure Realm is initialized
+      await useTastingStore.getState().initializeRealm();
+      
+      // Clear all tastings from Realm
+      realmService.clearAllTastings();
+      
+      // Clear state
+      set({ 
+        recentTastings: [],
+        isLoading: false,
+        error: null,
+      });
+      
+      console.log('All tastings cleared successfully');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to clear all tastings';
+      console.error('Error clearing all tastings:', error);
+      
+      set({ 
+        isLoading: false,
+        error: errorMessage,
+      });
+      
+      throw error;
+    }
   },
   
   // Deprecated - use setFlavorLevel instead
