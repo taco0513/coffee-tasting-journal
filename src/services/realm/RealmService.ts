@@ -697,6 +697,378 @@ class RealmService {
     }
   }
 
+  // Cafe and Roaster Suggestions
+  getCafeSuggestions(searchText: string): ICafeInfo[] {
+    try {
+      const realm = this.getRealm();
+      
+      if (!searchText || searchText.trim().length === 0) {
+        return [];
+      }
+      
+      const results = realm.objects<ICafeInfo>('CafeInfo')
+        .filtered('name BEGINSWITH[c] $0', searchText.trim())
+        .sorted('visitCount', true);
+      
+      const cafes: ICafeInfo[] = [];
+      for (let i = 0; i < Math.min(10, results.length); i++) {
+        cafes.push(results[i]);
+      }
+      
+      return cafes;
+    } catch (error) {
+      console.error('Failed to get cafe suggestions:', error);
+      return [];
+    }
+  }
+
+  getRoasterSuggestions(searchText: string): IRoasterInfo[] {
+    try {
+      const realm = this.getRealm();
+      
+      if (!searchText || searchText.trim().length === 0) {
+        return [];
+      }
+      
+      const results = realm.objects<IRoasterInfo>('RoasterInfo')
+        .filtered('name BEGINSWITH[c] $0', searchText.trim())
+        .sorted('coffeeCount', true);
+      
+      const roasters: IRoasterInfo[] = [];
+      for (let i = 0; i < Math.min(10, results.length); i++) {
+        roasters.push(results[i]);
+      }
+      
+      return roasters;
+    } catch (error) {
+      console.error('Failed to get roaster suggestions:', error);
+      return [];
+    }
+  }
+
+  // Get unique coffee name suggestions
+  getCoffeeNameSuggestions(searchText: string): string[] {
+    try {
+      const realm = this.getRealm();
+      
+      if (!searchText || searchText.trim().length === 0) {
+        return [];
+      }
+      
+      const results = realm.objects<ITastingRecord>('TastingRecord')
+        .filtered('coffeeName BEGINSWITH[c] $0 AND isDeleted = false', searchText.trim());
+      
+      // Get unique coffee names
+      const uniqueNames = new Set<string>();
+      results.forEach(record => {
+        if (record.coffeeName) {
+          uniqueNames.add(record.coffeeName);
+        }
+      });
+      
+      return Array.from(uniqueNames).slice(0, 10);
+    } catch (error) {
+      console.error('Failed to get coffee name suggestions:', error);
+      return [];
+    }
+  }
+
+  // Get unique origin suggestions
+  getOriginSuggestions(searchText: string): string[] {
+    try {
+      const realm = this.getRealm();
+      
+      if (!searchText || searchText.trim().length === 0) {
+        return [];
+      }
+      
+      const results = realm.objects<ITastingRecord>('TastingRecord')
+        .filtered('origin BEGINSWITH[c] $0 AND isDeleted = false', searchText.trim());
+      
+      // Get unique origins
+      const uniqueOrigins = new Set<string>();
+      results.forEach(record => {
+        if (record.origin) {
+          uniqueOrigins.add(record.origin);
+        }
+      });
+      
+      return Array.from(uniqueOrigins).slice(0, 10);
+    } catch (error) {
+      console.error('Failed to get origin suggestions:', error);
+      return [];
+    }
+  }
+
+  // Get unique variety suggestions
+  getVarietySuggestions(searchText: string): string[] {
+    try {
+      const realm = this.getRealm();
+      
+      if (!searchText || searchText.trim().length === 0) {
+        return [];
+      }
+      
+      const results = realm.objects<ITastingRecord>('TastingRecord')
+        .filtered('variety BEGINSWITH[c] $0 AND isDeleted = false', searchText.trim());
+      
+      // Get unique varieties
+      const uniqueVarieties = new Set<string>();
+      results.forEach(record => {
+        if (record.variety) {
+          uniqueVarieties.add(record.variety);
+        }
+      });
+      
+      return Array.from(uniqueVarieties).slice(0, 10);
+    } catch (error) {
+      console.error('Failed to get variety suggestions:', error);
+      return [];
+    }
+  }
+
+  // Get unique process suggestions
+  getProcessSuggestions(searchText: string): string[] {
+    try {
+      const realm = this.getRealm();
+      
+      if (!searchText || searchText.trim().length === 0) {
+        return [];
+      }
+      
+      const results = realm.objects<ITastingRecord>('TastingRecord')
+        .filtered('process BEGINSWITH[c] $0 AND isDeleted = false', searchText.trim());
+      
+      // Get unique processes
+      const uniqueProcesses = new Set<string>();
+      results.forEach(record => {
+        if (record.process) {
+          uniqueProcesses.add(record.process);
+        }
+      });
+      
+      return Array.from(uniqueProcesses).slice(0, 10);
+    } catch (error) {
+      console.error('Failed to get process suggestions:', error);
+      return [];
+    }
+  }
+
+  // Get coffee names for a specific roastery
+  getRoasterCoffees(roasterName: string, searchText?: string): string[] {
+    try {
+      const realm = this.getRealm();
+      
+      if (!roasterName) {
+        return [];
+      }
+      
+      let query = 'roastery = $0 AND isDeleted = false';
+      const params: any[] = [roasterName];
+      
+      if (searchText && searchText.trim().length > 0) {
+        query += ' AND coffeeName BEGINSWITH[c] $1';
+        params.push(searchText.trim());
+      }
+      
+      const results = realm.objects<ITastingRecord>('TastingRecord')
+        .filtered(query, ...params);
+      
+      // Get unique coffee names
+      const uniqueCoffees = new Set<string>();
+      results.forEach(record => {
+        if (record.coffeeName) {
+          uniqueCoffees.add(record.coffeeName);
+        }
+      });
+      
+      return Array.from(uniqueCoffees).slice(0, 10);
+    } catch (error) {
+      console.error('Failed to get roaster coffees:', error);
+      return [];
+    }
+  }
+
+  // Get coffee details for auto-fill
+  getCoffeeDetails(roasterName: string, coffeeName: string): Partial<ITastingRecord> | null {
+    try {
+      const realm = this.getRealm();
+      
+      if (!roasterName || !coffeeName) {
+        return null;
+      }
+      
+      // Find the most recent tasting record for this coffee
+      const results = realm.objects<ITastingRecord>('TastingRecord')
+        .filtered('roastery = $0 AND coffeeName = $1 AND isDeleted = false', roasterName, coffeeName)
+        .sorted('createdAt', true);
+      
+      if (results.length === 0) {
+        return null;
+      }
+      
+      const mostRecent = results[0];
+      
+      // Return only the fields that should be auto-filled
+      return {
+        origin: mostRecent.origin,
+        variety: mostRecent.variety,
+        altitude: mostRecent.altitude,
+        process: mostRecent.process,
+        roasterNotes: mostRecent.roasterNotes,
+      };
+    } catch (error) {
+      console.error('Failed to get coffee details:', error);
+      return null;
+    }
+  }
+
+  // Get roasters for a specific cafe
+  getCafeRoasters(cafeName: string, searchText?: string): string[] {
+    try {
+      const realm = this.getRealm();
+      
+      if (!cafeName) {
+        return [];
+      }
+      
+      const roasters: string[] = [];
+      
+      // 1. Check if there's a roastery with the same name as the cafe
+      if (!searchText || cafeName.toLowerCase().startsWith(searchText.toLowerCase())) {
+        const roasterWithSameName = realm.objects<IRoasterInfo>('RoasterInfo')
+          .filtered('name = $0', cafeName);
+        if (roasterWithSameName.length > 0) {
+          roasters.push(cafeName);
+        }
+      }
+      
+      // 2. Find roasters that have been consumed at this cafe
+      let query = 'cafeName = $0 AND isDeleted = false';
+      const params: any[] = [cafeName];
+      
+      if (searchText && searchText.trim().length > 0) {
+        query += ' AND roastery BEGINSWITH[c] $1';
+        params.push(searchText.trim());
+      }
+      
+      const results = realm.objects<ITastingRecord>('TastingRecord')
+        .filtered(query, ...params);
+      
+      // Get unique roasters from this cafe
+      const cafeRoasters = new Set<string>();
+      results.forEach(record => {
+        if (record.roastery && record.roastery !== cafeName) {
+          cafeRoasters.add(record.roastery);
+        }
+      });
+      
+      // Count frequency for sorting
+      const roasterCounts = new Map<string, number>();
+      results.forEach(record => {
+        if (record.roastery) {
+          roasterCounts.set(record.roastery, (roasterCounts.get(record.roastery) || 0) + 1);
+        }
+      });
+      
+      // Sort by frequency
+      const sortedRoasters = Array.from(cafeRoasters)
+        .sort((a, b) => (roasterCounts.get(b) || 0) - (roasterCounts.get(a) || 0));
+      
+      // Combine results (cafe=roastery name first, then others)
+      roasters.push(...sortedRoasters);
+      
+      return roasters.slice(0, 10);
+    } catch (error) {
+      console.error('Failed to get cafe roasters:', error);
+      return [];
+    }
+  }
+
+  incrementCafeVisit(cafeName: string): void {
+    try {
+      const realm = this.getRealm();
+      
+      realm.write(() => {
+        const existingCafe = realm.objects<ICafeInfo>('CafeInfo')
+          .filtered('name = $0', cafeName)[0];
+        
+        if (existingCafe) {
+          existingCafe.visitCount += 1;
+          existingCafe.lastVisitedAt = new Date();
+          existingCafe.updatedAt = new Date();
+        } else {
+          realm.create<ICafeInfo>('CafeInfo', {
+            id: uuid.v4() as string,
+            name: cafeName,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            visitCount: 1,
+            lastVisitedAt: new Date(),
+          });
+        }
+      });
+    } catch (error) {
+      console.error('Failed to increment cafe visit:', error);
+    }
+  }
+
+  incrementRoasterVisit(roasterName: string): void {
+    try {
+      const realm = this.getRealm();
+      
+      realm.write(() => {
+        const existingRoaster = realm.objects<IRoasterInfo>('RoasterInfo')
+          .filtered('name = $0', roasterName)[0];
+        
+        if (existingRoaster) {
+          existingRoaster.coffeeCount += 1;
+          existingRoaster.updatedAt = new Date();
+        } else {
+          realm.create<IRoasterInfo>('RoasterInfo', {
+            id: uuid.v4() as string,
+            name: roasterName,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            coffeeCount: 1,
+          });
+        }
+      });
+    } catch (error) {
+      console.error('Failed to increment roaster visit:', error);
+    }
+  }
+
+  // Delete a complete tasting record
+  deleteTasting(tastingId: string): boolean {
+    try {
+      const realm = this.getRealm();
+      
+      const result = realm.write(() => {
+        // Get the tasting record
+        const tasting = realm.objectForPrimaryKey<ITastingRecord>('TastingRecord', tastingId);
+        
+        if (!tasting) {
+          console.warn(`Tasting record with id ${tastingId} not found`);
+          return false;
+        }
+        
+        // Delete the tasting record
+        // FlavorNote and SensoryAttribute are embedded objects, 
+        // so they will be automatically deleted with the parent
+        realm.delete(tasting);
+        
+        console.log(`Successfully deleted tasting record: ${tastingId}`);
+        return true;
+      });
+      
+      return result as boolean;
+    } catch (error) {
+      console.error('Delete tasting error:', error);
+      return false;
+    }
+  }
+
   // Cleanup
   close(): void {
     if (this.realm && !this.realm.isClosed) {

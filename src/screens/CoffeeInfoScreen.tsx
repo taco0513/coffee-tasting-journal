@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,18 +12,127 @@ import {
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {useTastingStore} from '../stores/tastingStore';
+import AutocompleteInput from '../components/AutocompleteInput';
+import RealmService from '../services/realm/RealmService';
 
 const CoffeeInfoScreen = () => {
   const navigation = useNavigation();
   
   // Zustand store 사용
   const { currentTasting, updateCoffeeInfo, setCurrentStep } = useTastingStore();
+  
+  // 자동완성 상태
+  const [cafeSuggestions, setCafeSuggestions] = useState<string[]>([]);
+  const [roasterSuggestions, setRoasterSuggestions] = useState<string[]>([]);
+  const [coffeeNameSuggestions, setCoffeeNameSuggestions] = useState<string[]>([]);
+  const [originSuggestions, setOriginSuggestions] = useState<string[]>([]);
+  const [varietySuggestions, setVarietySuggestions] = useState<string[]>([]);
+  const [processSuggestions, setProcessSuggestions] = useState<string[]>([]);
+  const [showCafeSuggestions, setShowCafeSuggestions] = useState(false);
+  const [showRoasterSuggestions, setShowRoasterSuggestions] = useState(false);
+  
+  const realmService = RealmService.getInstance();
+  
+  // 기본 가공 방식 옵션
+  const defaultProcessOptions = ['Washed', 'Natural', 'Honey', 'Anaerobic'];
 
+  // 카페 입력 변경 시 제안 목록 업데이트
+  useEffect(() => {
+    if (currentTasting.cafeName && currentTasting.cafeName.trim().length > 0) {
+      const suggestions = realmService.getCafeSuggestions(currentTasting.cafeName);
+      setCafeSuggestions(suggestions.map(cafe => cafe.name));
+    } else {
+      setCafeSuggestions([]);
+    }
+  }, [currentTasting.cafeName]);
+  
+  // 로스터 입력 변경 시 제안 목록 업데이트 (카페 기반)
+  useEffect(() => {
+    if (currentTasting.cafeName) {
+      // If cafe is selected, show roasters from that cafe
+      const suggestions = realmService.getCafeRoasters(
+        currentTasting.cafeName,
+        currentTasting.roastery
+      );
+      setRoasterSuggestions(suggestions);
+    } else if (currentTasting.roastery && currentTasting.roastery.trim().length > 0) {
+      // If no cafe selected, show all roaster suggestions
+      const suggestions = realmService.getRoasterSuggestions(currentTasting.roastery);
+      setRoasterSuggestions(suggestions.map(roaster => roaster.name));
+    } else {
+      setRoasterSuggestions([]);
+    }
+  }, [currentTasting.roastery, currentTasting.cafeName]);
+  
+  // 커피 이름 입력 변경 시 제안 목록 업데이트 (로스터리 기반)
+  useEffect(() => {
+    if (currentTasting.roastery) {
+      // If roastery is selected, show only coffees from that roastery
+      const suggestions = realmService.getRoasterCoffees(
+        currentTasting.roastery, 
+        currentTasting.coffeeName
+      );
+      setCoffeeNameSuggestions(suggestions);
+    } else if (currentTasting.coffeeName && currentTasting.coffeeName.trim().length > 0) {
+      // If no roastery selected, show all coffee suggestions
+      const suggestions = realmService.getCoffeeNameSuggestions(currentTasting.coffeeName);
+      setCoffeeNameSuggestions(suggestions);
+    } else {
+      setCoffeeNameSuggestions([]);
+    }
+  }, [currentTasting.coffeeName, currentTasting.roastery]);
+  
+  // 생산지 입력 변경 시 제안 목록 업데이트
+  useEffect(() => {
+    if (currentTasting.origin && currentTasting.origin.trim().length > 0) {
+      const suggestions = realmService.getOriginSuggestions(currentTasting.origin);
+      setOriginSuggestions(suggestions);
+    } else {
+      setOriginSuggestions([]);
+    }
+  }, [currentTasting.origin]);
+  
+  // 품종 입력 변경 시 제안 목록 업데이트
+  useEffect(() => {
+    if (currentTasting.variety && currentTasting.variety.trim().length > 0) {
+      const suggestions = realmService.getVarietySuggestions(currentTasting.variety);
+      setVarietySuggestions(suggestions);
+    } else {
+      setVarietySuggestions([]);
+    }
+  }, [currentTasting.variety]);
+  
+  // 가공 방식 입력 변경 시 제안 목록 업데이트
+  useEffect(() => {
+    if (currentTasting.process && currentTasting.process.trim().length > 0) {
+      // Filter default options based on input
+      const filtered = defaultProcessOptions.filter(option => 
+        option.toLowerCase().startsWith(currentTasting.process.toLowerCase())
+      );
+      // Also add previously used process methods from RealmService
+      const previousProcesses = realmService.getProcessSuggestions(currentTasting.process);
+      
+      // Combine and remove duplicates
+      const combined = [...new Set([...filtered, ...previousProcesses])];
+      setProcessSuggestions(combined.slice(0, 10));
+    } else {
+      setProcessSuggestions(defaultProcessOptions);
+    }
+  }, [currentTasting.process]);
+  
   // 필수 필드가 채워졌는지 확인
   const isValid = currentTasting.roastery && currentTasting.coffeeName;
 
   const handleNext = () => {
     if (isValid) {
+      // 방문 횟수 증가
+      if (currentTasting.cafeName && currentTasting.cafeName.trim().length > 0) {
+        realmService.incrementCafeVisit(currentTasting.cafeName);
+      }
+      if (currentTasting.roastery && currentTasting.roastery.trim().length > 0) {
+        realmService.incrementRoasterVisit(currentTasting.roastery);
+      }
+      
       // 다음 단계로 이동
       setCurrentStep(2);
       navigation.navigate('RoasterNotes' as never);
@@ -61,71 +170,92 @@ const CoffeeInfoScreen = () => {
           {/* 입력 폼 */}
           <View style={styles.form}>
             {/* 카페 이름 (선택) */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>카페 이름 (선택)</Text>
-              <TextInput
-                style={styles.input}
+            <View style={{ zIndex: cafeSuggestions.length > 0 && currentTasting.cafeName ? 10 : 1 }}>
+              <AutocompleteInput
+                value={currentTasting.cafeName || ''}
+                onChangeText={(text) => updateCoffeeInfo({cafeName: text})}
+                onSelect={(item) => {
+                  // Update cafe name
+                  updateCoffeeInfo({cafeName: item});
+                  
+                  // Check if there's a roastery with the same name
+                  const roastersWithSameName = realmService.getRoasterSuggestions(item);
+                  if (roastersWithSameName.length > 0 && 
+                      roastersWithSameName.some(r => r.name === item) &&
+                      !currentTasting.roastery) {
+                    // Auto-fill roastery if cafe name matches a roastery name
+                    updateCoffeeInfo({cafeName: item, roastery: item});
+                  }
+                }}
+                suggestions={cafeSuggestions}
                 placeholder="예: 블루보틀"
-                value={currentTasting.cafeName}
-                onChangeText={(text) => 
-                  updateCoffeeInfo({cafeName: text})
-                }
+                label="카페 이름 (선택)"
               />
             </View>
 
             {/* 로스터리 (필수) */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>
-                로스터리 <Text style={styles.required}>*</Text>
-              </Text>
-              <TextInput
-                style={styles.input}
+            <View style={{ zIndex: roasterSuggestions.length > 0 && currentTasting.roastery ? 5 : 1 }}>
+              <AutocompleteInput
+                value={currentTasting.roastery || ''}
+                onChangeText={(text) => updateCoffeeInfo({roastery: text})}
+                onSelect={(item) => updateCoffeeInfo({roastery: item})}
+                suggestions={roasterSuggestions}
                 placeholder="예: 프릳츠"
-                value={currentTasting.roastery}
-                onChangeText={(text) => 
-                  updateCoffeeInfo({roastery: text})
-                }
+                label="로스터리 *"
               />
             </View>
 
             {/* 커피 이름 (필수) */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>
-                커피 이름 <Text style={styles.required}>*</Text>
-              </Text>
-              <TextInput
-                style={styles.input}
+            <View style={{ zIndex: coffeeNameSuggestions.length > 0 && currentTasting.coffeeName ? 4 : 1 }}>
+              <AutocompleteInput
+                value={currentTasting.coffeeName || ''}
+                onChangeText={(text) => updateCoffeeInfo({coffeeName: text})}
+                onSelect={(item) => {
+                  // Update coffee name
+                  updateCoffeeInfo({coffeeName: item});
+                  
+                  // Auto-fill other fields if we have previous data
+                  if (currentTasting.roastery) {
+                    const details = realmService.getCoffeeDetails(currentTasting.roastery, item);
+                    if (details) {
+                      updateCoffeeInfo({
+                        coffeeName: item,
+                        origin: details.origin || currentTasting.origin || '',
+                        variety: details.variety || currentTasting.variety || '',
+                        altitude: details.altitude || currentTasting.altitude || '',
+                        process: details.process || currentTasting.process || '',
+                        roasterNotes: details.roasterNotes || currentTasting.roasterNotes || '',
+                      });
+                    }
+                  }
+                }}
+                suggestions={coffeeNameSuggestions}
                 placeholder="예: 에티오피아 예가체프 G1"
-                value={currentTasting.coffeeName}
-                onChangeText={(text) => 
-                  updateCoffeeInfo({coffeeName: text})
-                }
+                label="커피 이름 *"
               />
             </View>
 
             {/* 생산지 (선택) */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>생산지 (선택)</Text>
-              <TextInput
-                style={styles.input}
+            <View style={{ zIndex: originSuggestions.length > 0 && currentTasting.origin ? 3 : 1 }}>
+              <AutocompleteInput
+                value={currentTasting.origin || ''}
+                onChangeText={(text) => updateCoffeeInfo({origin: text})}
+                onSelect={(item) => updateCoffeeInfo({origin: item})}
+                suggestions={originSuggestions}
                 placeholder="예: Ethiopia / Yirgacheffe"
-                value={currentTasting.origin}
-                onChangeText={(text) => 
-                  updateCoffeeInfo({origin: text})
-                }
+                label="생산지 (선택)"
               />
             </View>
 
             {/* 품종 (선택) */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>품종 (선택)</Text>
-              <TextInput
-                style={styles.input}
+            <View style={{ zIndex: varietySuggestions.length > 0 && currentTasting.variety ? 2 : 1 }}>
+              <AutocompleteInput
+                value={currentTasting.variety || ''}
+                onChangeText={(text) => updateCoffeeInfo({variety: text})}
+                onSelect={(item) => updateCoffeeInfo({variety: item})}
+                suggestions={varietySuggestions}
                 placeholder="예: Heirloom"
-                value={currentTasting.variety}
-                onChangeText={(text) => 
-                  updateCoffeeInfo({variety: text})
-                }
+                label="품종 (선택)"
               />
             </View>
 
@@ -143,15 +273,14 @@ const CoffeeInfoScreen = () => {
             </View>
 
             {/* 가공 방식 (선택) */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>가공 방식 (선택)</Text>
-              <TextInput
-                style={styles.input}
+            <View style={{ zIndex: processSuggestions.length > 0 && currentTasting.process ? 1 : 1 }}>
+              <AutocompleteInput
+                value={currentTasting.process || ''}
+                onChangeText={(text) => updateCoffeeInfo({process: text})}
+                onSelect={(item) => updateCoffeeInfo({process: item})}
+                suggestions={processSuggestions}
                 placeholder="예: Washed"
-                value={currentTasting.process}
-                onChangeText={(text) => 
-                  updateCoffeeInfo({process: text})
-                }
+                label="가공 방식 (선택)"
               />
             </View>
 

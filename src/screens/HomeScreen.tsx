@@ -1,4 +1,4 @@
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {RootStackParamList} from '../types/navigation';
 
@@ -33,12 +33,11 @@ const HomeScreen = () => {
   const [refreshing, setRefreshing] = React.useState(false);
   const [initialized, setInitialized] = React.useState(false);
 
-  // Initialize Realm and load data on app start
+  // Initialize Realm on app start
   useEffect(() => {
     const initializeApp = async () => {
       try {
         await initializeRealm();
-        await loadRecentTastings();
         setInitialized(true);
       } catch (error) {
         console.error('Failed to initialize app:', error);
@@ -48,6 +47,15 @@ const HomeScreen = () => {
     
     initializeApp();
   }, []);
+
+  // Load tastings whenever screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      if (initialized) {
+        loadRecentTastings();
+      }
+    }, [initialized])
+  );
 
   // Pull to refresh
   const onRefresh = React.useCallback(async () => {
@@ -181,8 +189,7 @@ const HomeScreen = () => {
                 key={tasting.id} 
                 style={styles.tastingCard}
                 onPress={() => {
-                  // TODO: Navigate to detail view
-                  console.log('Tasting detail:', tasting.id);
+                  navigation.navigate('TastingDetail', { tastingId: tasting.id });
                 }}
               >
                 <View style={styles.cardLeft}>

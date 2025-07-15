@@ -13,6 +13,7 @@ import FlavorLevel3Screen from '../screens/flavor/FlavorLevel3Screen';
 import FlavorLevel4Screen from '../screens/flavor/FlavorLevel4Screen';
 import SensoryScreen from '../screens/SensoryScreen';
 import ResultScreen from '../screens/ResultScreen';
+import TastingDetailScreen from '../screens/TastingDetailScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -41,6 +42,13 @@ function AppNavigator() {
           options={{
             title: '커피 테이스팅 저널',
             headerShown: false, // 홈 화면은 헤더 숨김
+          }}
+        />
+        <Stack.Screen
+          name="TastingDetail"
+          component={TastingDetailScreen}
+          options={{
+            title: '테이스팅 상세',
           }}
         />
         <Stack.Screen
