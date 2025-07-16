@@ -8,16 +8,26 @@ interface FlavorPath {
   level4?: string;
 }
 
+interface SyncStatus {
+  isOnline: boolean;
+  isSyncing: boolean;
+  lastSyncTime: Date | null;
+  pendingUploads: number;
+  error: string | null;
+}
+
 interface TastingState {
   currentTasting: any;
   selectedFlavors: FlavorPath[];
   matchScore: number | null;
+  syncStatus: SyncStatus;
   
   updateField: (field: string, value: any) => void;
   setSelectedFlavors: (flavors: FlavorPath[]) => void;
   saveTasting: () => void;
   calculateMatchScore: () => void;
   reset: () => void;
+  updateSyncStatus: (status: Partial<SyncStatus>) => void;
 }
 
 export const useTastingStore = create<TastingState>((set, get) => ({
@@ -39,6 +49,13 @@ export const useTastingStore = create<TastingState>((set, get) => ({
   },
   selectedFlavors: [],
   matchScore: null,
+  syncStatus: {
+    isOnline: false,
+    isSyncing: false,
+    lastSyncTime: null,
+    pendingUploads: 0,
+    error: null,
+  },
 
   updateField: (field, value) =>
     set((state) => ({
@@ -119,6 +136,14 @@ export const useTastingStore = create<TastingState>((set, get) => ({
     
     set({ matchScore: totalScore });
   },
+
+  updateSyncStatus: (status) =>
+    set((state) => ({
+      syncStatus: {
+        ...state.syncStatus,
+        ...status,
+      },
+    })),
 
   reset: () =>
     set({
