@@ -31,5 +31,36 @@ target 'CoffeeJournal' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+    
+    # M1 Mac에서 MLKit 호환성을 위한 아키텍처 설정
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |config|
+        # MLKit 관련 pods에 대한 특별 설정
+        if target.name.include?('MLKit') || target.name.include?('GoogleMLKit') || target.name.include?('TextRecognition')
+          config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
+          config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '12.0'
+        end
+        
+        # 시뮬레이터에서 arm64 제외 (M1 Mac 호환성)
+        if config.name == 'Debug' || config.name == 'Release'
+          config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
+        end
+        
+        # 모든 타겟에 대한 일반적인 설정
+        config.build_settings['ENABLE_BITCODE'] = 'NO'
+        config.build_settings['ONLY_ACTIVE_ARCH'] = 'YES'
+        
+        # x86_64 빌드 활성화
+        config.build_settings['VALID_ARCHS'] = 'arm64 x86_64'
+        config.build_settings['VALID_ARCHS[sdk=iphonesimulator*]'] = 'x86_64'
+      end
+    end
+    
+    # 프로젝트 레벨 설정
+    installer.pods_project.build_configurations.each do |config|
+      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
+      config.build_settings['ENABLE_BITCODE'] = 'NO'
+      config.build_settings['ONLY_ACTIVE_ARCH'] = 'YES'
+    end
   end
 end

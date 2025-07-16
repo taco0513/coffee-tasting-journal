@@ -6,20 +6,37 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
+  Dimensions,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTastingStore } from '../../stores/tastingStore';
+import {
+  hitSlop,
+  HIGColors,
+  HIGConstants,
+} from '../../styles/common';
+import { NavigationButton } from '../../components/common';
+import { FONT_SIZE } from '../../constants/typography';
+import { Colors } from '../../constants/colors';
+
+interface FlavorPath {
+  level1?: string;
+  level2?: string;
+  level3?: string;
+  level4?: string;
+}
 import { flavorWheel } from '../../data/flavorWheel';
 
 const FlavorLevel2Screen = () => {
   const navigation = useNavigation();
-  const { selectedFlavors, setFlavorLevel } = useTastingStore();
+  const { selectedFlavors, setSelectedFlavors } = useTastingStore();
   const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>(
-    selectedFlavors?.level2 || []
+    selectedFlavors?.map(f => f.level2).filter(Boolean) || []
   );
 
   // Group subcategories by their parent category
-  const categorizedSubcategories = selectedFlavors.level1.reduce((acc, category) => {
+  const level1Categories = selectedFlavors?.map(f => f.level1).filter(Boolean) || [];
+  const categorizedSubcategories = level1Categories.reduce((acc, category) => {
     const subcategories = flavorWheel[category as keyof typeof flavorWheel] || [];
     if (subcategories.length > 0) {
       acc[category] = subcategories;
@@ -38,7 +55,26 @@ const FlavorLevel2Screen = () => {
   };
 
   const handleNext = () => {
-    setFlavorLevel(2, selectedSubcategories);
+    // Level 1 선택값들과 Level 2를 결합해서 저장
+    const level1Categories = selectedFlavors?.map(f => f.level1).filter(Boolean) || [];
+    const newFlavors: FlavorPath[] = [];
+    
+    // Level 1 카테고리별로 Level 2 서브카테고리 매핑
+    level1Categories.forEach(level1 => {
+      const relatedSubcategories = selectedSubcategories.filter(sub => 
+        (flavorWheel[level1 as keyof typeof flavorWheel] || []).includes(sub)
+      );
+      
+      if (relatedSubcategories.length > 0) {
+        relatedSubcategories.forEach(level2 => {
+          newFlavors.push({ level1, level2 });
+        });
+      } else {
+        newFlavors.push({ level1 });
+      }
+    });
+    
+    setSelectedFlavors(newFlavors);
     navigation.navigate('FlavorLevel3' as never);
   };
 
@@ -51,9 +87,14 @@ const FlavorLevel2Screen = () => {
   return (
     <SafeAreaView style={styles.container}>
       {/* Skip Button */}
-      <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
-        <Text style={styles.skipText}>건너뛰기</Text>
-      </TouchableOpacity>
+      <View style={styles.skipButton}>
+        <NavigationButton
+          title="건너뛰기"
+          onPress={handleSkip}
+          variant="text"
+          fullWidth={false}
+        />
+      </View>
 
       {/* Progress Bar */}
       <View style={styles.progressContainer}>
@@ -75,48 +116,52 @@ const FlavorLevel2Screen = () => {
           <View key={category} style={styles.categorySection}>
             <Text style={styles.sectionHeader}>{category} 하위</Text>
             <View style={styles.gridContainer}>
-              {subcategories.map((subcategory) => (
-                <TouchableOpacity
-                  key={subcategory}
-                  style={[
-                    styles.categoryButton,
-                    selectedSubcategories.includes(subcategory) && styles.selectedButton,
-                  ]}
-                  onPress={() => handleSubcategoryPress(subcategory)}
-                >
-                  <Text
+              {subcategories.map((subcategory) => {
+                const isSelected = selectedSubcategories.includes(subcategory);
+                return (
+                  <TouchableOpacity
+                    key={subcategory}
                     style={[
-                      styles.categoryText,
-                      selectedSubcategories.includes(subcategory) && styles.selectedText,
+                      styles.categoryButton,
+                      isSelected && styles.selectedButton,
                     ]}
+                    onPress={() => handleSubcategoryPress(subcategory)}
+                    hitSlop={hitSlop.small}
                   >
-                    {subcategory}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <Text
+                      style={[
+                        styles.categoryText,
+                        isSelected && styles.selectedText,
+                      ]}
+                    >
+                      {subcategory}
+                    </Text>
+                    {isSelected && (
+                      <Text style={{
+                        position: 'absolute',
+                        top: 5,
+                        right: 5,
+                        color: 'white',
+                        fontSize: 16,
+                        fontWeight: 'bold'
+                      }}>✓</Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
         ))}
       </ScrollView>
 
       {/* Next Button */}
-      <TouchableOpacity
-        style={[
-          styles.button,
-          !isNextEnabled && styles.disabledButton,
-        ]}
+      <NavigationButton
+        title="다음"
         onPress={handleNext}
         disabled={!isNextEnabled}
-      >
-        <Text
-          style={[
-            styles.buttonText,
-            !isNextEnabled && styles.disabledButtonText,
-          ]}
-        >
-          다음
-        </Text>
-      </TouchableOpacity>
+        variant="primary"
+        style={styles.nextButton}
+      />
     </SafeAreaView>
   );
 };
@@ -135,7 +180,7 @@ const styles = StyleSheet.create({
   },
   skipText: {
     fontSize: 16,
-    color: '#666',
+    color: Colors.TEXT_SECONDARY,
   },
   progressContainer: {
     flexDirection: 'row',
@@ -163,7 +208,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: Colors.TEXT_SECONDARY,
     textAlign: 'center',
     marginBottom: 30,
   },
@@ -187,44 +232,44 @@ const styles = StyleSheet.create({
     marginHorizontal: -6,
   },
   categoryButton: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    margin: 6,
+    backgroundColor: HIGColors.systemBackground,
+    borderWidth: 2,
+    borderColor: HIGColors.gray4,
+    borderRadius: HIGConstants.BORDER_RADIUS_LARGE,
+    paddingHorizontal: HIGConstants.SPACING_LG,
+    paddingVertical: HIGConstants.SPACING_MD,
+    margin: HIGConstants.SPACING_XS,
+    minHeight: HIGConstants.MIN_TOUCH_TARGET,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   selectedButton: {
-    backgroundColor: '#000',
-    borderColor: '#000',
+    backgroundColor: HIGColors.blue,
+    borderColor: HIGColors.blue,
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+    transform: [{ scale: 1.02 }],
   },
   categoryText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#000',
+    fontSize: HIGConstants.FONT_SIZE_MEDIUM,
+    fontWeight: '600',
+    color: HIGColors.label,
+    textAlign: 'center',
   },
   selectedText: {
-    color: '#fff',
+    color: '#FFFFFF',
   },
-  button: {
-    backgroundColor: '#8B4513',
-    paddingVertical: 16,
-    borderRadius: 30,
-    alignItems: 'center',
+  nextButton: {
     marginBottom: 40,
     marginTop: 20,
-  },
-  disabledButton: {
-    backgroundColor: '#e0e0e0',
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  disabledButtonText: {
-    color: '#999',
+    marginHorizontal: 20,
   },
 });
 

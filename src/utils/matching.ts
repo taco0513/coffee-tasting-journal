@@ -324,7 +324,7 @@ export const parseRoasterNotes = (notes: string): {
   return { flavors, sensoryTerms };
 };
 
-// Function to get match details for debugging/display
+// Function to get match details for display
 export const getMatchDetails = (
   roasterNotes: string,
   selectedFlavors: SelectedFlavors,

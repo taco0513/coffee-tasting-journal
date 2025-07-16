@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   SafeAreaView,
   Alert,
   ActivityIndicator,
@@ -14,6 +13,12 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../types/navigation';
 import { ITastingRecord } from '../services/realm/schemas';
 import RealmService from '../services/realm/RealmService';
+import { useToastStore } from '../stores/toastStore';
+import {
+  HIGColors,
+} from '../styles/common';
+import { NavigationButton } from '../components/common';
+import { Colors } from '../constants/colors';
 
 // Navigation types
 type TastingDetailScreenRouteProp = RouteProp<RootStackParamList, 'TastingDetail'>;
@@ -22,12 +27,15 @@ type TastingDetailScreenNavigationProp = StackNavigationProp<RootStackParamList,
 const TastingDetailScreen = () => {
   const navigation = useNavigation<TastingDetailScreenNavigationProp>();
   const route = useRoute<TastingDetailScreenRouteProp>();
+  const { showSuccessToast, showErrorToast } = useToastStore();
   
-  const [tastingRecord, setTastingRecord] = useState<ITastingRecord | null>(null);
+  const [tastingRecord, setTastingRecord] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const realmService = RealmService.getInstance();
+  const isMountedRef = useRef(true);
 
   // Get tastingId from route params
   const tastingId = route.params?.tastingId;
@@ -36,29 +44,78 @@ const TastingDetailScreen = () => {
     loadTastingData();
   }, [tastingId]);
 
+  // Cleanup when component unmounts
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const loadTastingData = async () => {
     try {
+      if (!isMountedRef.current) return;
+      
       setLoading(true);
       setError(null);
       
       if (!tastingId) {
-        setError('테이스팅 ID가 없습니다.');
+        if (isMountedRef.current) {
+          setError('테이스팅 ID가 없습니다.');
+        }
         return;
       }
 
       const record = realmService.getTastingRecordById(tastingId);
       
       if (!record) {
-        setError('테이스팅 기록을 찾을 수 없습니다.');
+        if (isMountedRef.current) {
+          setError('테이스팅 기록을 찾을 수 없습니다.');
+        }
         return;
       }
 
-      setTastingRecord(record);
+      if (isMountedRef.current) {
+        // Realm 객체를 plain object로 복사하여 저장
+        const plainRecord = {
+          id: record.id,
+          createdAt: record.createdAt,
+          updatedAt: record.updatedAt,
+          cafeName: record.cafeName,
+          roastery: record.roastery,
+          coffeeName: record.coffeeName,
+          origin: record.origin,
+          variety: record.variety,
+          altitude: record.altitude,
+          process: record.process,
+          temperature: record.temperature,
+          roasterNotes: record.roasterNotes,
+          matchScoreTotal: record.matchScoreTotal,
+          matchScoreFlavor: record.matchScoreFlavor,
+          matchScoreSensory: record.matchScoreSensory,
+          flavorNotes: record.flavorNotes ? Array.from(record.flavorNotes).map(note => ({
+            level: note.level,
+            value: note.value,
+            koreanValue: note.koreanValue,
+          })) : [],
+          sensoryAttribute: record.sensoryAttribute ? {
+            body: record.sensoryAttribute.body,
+            acidity: record.sensoryAttribute.acidity,
+            sweetness: record.sensoryAttribute.sweetness,
+            finish: record.sensoryAttribute.finish,
+            mouthfeel: record.sensoryAttribute.mouthfeel,
+          } : null,
+        };
+        setTastingRecord(plainRecord);
+      }
     } catch (err) {
       console.error('Failed to load tasting data:', err);
-      setError('데이터를 불러오는 중 오류가 발생했습니다.');
+      if (isMountedRef.current) {
+        setError('데이터를 불러오는 중 오류가 발생했습니다.');
+      }
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -68,20 +125,43 @@ const TastingDetailScreen = () => {
   };
 
   const handleDelete = () => {
+    if (!tastingId) {
+      showErrorToast('삭제 실패', '테이스팅 ID가 없습니다');
+      return;
+    }
+
+    if (isDeleting) {
+      return; // 이미 삭제 중이면 중복 실행 방지
+    }
+
     Alert.alert(
-      '정말 삭제하시겠습니까?',
-      '이 작업은 되돌릴 수 없습니다.',
+      '삭제 확인',
+      '정말 이 테이스팅 기록을 삭제하시겠습니까?',
       [
         { text: '취소', style: 'cancel' },
         { 
           text: '삭제', 
           style: 'destructive',
-          onPress: () => {
-            const success = realmService.deleteTasting(tastingId);
-            if (success) {
-              navigation.goBack();
-            } else {
-              Alert.alert('오류', '삭제 중 문제가 발생했습니다.');
+          onPress: async () => {
+            try {
+              setIsDeleting(true);
+              
+              // 삭제 실행
+              const success = await RealmService.deleteTasting(tastingId);
+              
+              if (success) {
+                showSuccessToast('삭제 완료', '테이스팅 기록이 삭제되었습니다');
+                // 삭제 성공 후 즉시 화면 이동
+                navigation.goBack();
+              } else {
+                showErrorToast('삭제 실패', '다시 시도해주세요');
+                setIsDeleting(false);
+              }
+              
+            } catch (error) {
+              showErrorToast('삭제 실패', '다시 시도해주세요');
+              console.error('Delete error:', error);
+              setIsDeleting(false);
             }
           }
         }
@@ -110,12 +190,14 @@ const TastingDetailScreen = () => {
   };
 
   // Loading state
-  if (loading) {
+  if (loading || isDeleting) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#000000" />
-          <Text style={styles.loadingText}>로딩 중...</Text>
+          <Text style={styles.loadingText}>
+            {isDeleting ? '삭제 중...' : '로딩 중...'}
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -127,9 +209,11 @@ const TastingDetailScreen = () => {
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error || '데이터를 불러올 수 없습니다.'}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={loadTastingData}>
-            <Text style={styles.retryButtonText}>다시 시도</Text>
-          </TouchableOpacity>
+          <NavigationButton
+            title="다시 시도"
+            onPress={loadTastingData}
+            variant="primary"
+          />
         </View>
       </SafeAreaView>
     );
@@ -139,16 +223,31 @@ const TastingDetailScreen = () => {
     <SafeAreaView style={styles.container}>
       {/* Header with Edit/Delete buttons */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.backButtonText}>← 뒤로</Text>
-        </TouchableOpacity>
+        <NavigationButton
+          title="← 뒤로"
+          onPress={() => navigation.goBack()}
+          variant="text"
+          fullWidth={false}
+          style={styles.backButton}
+          textStyle={styles.backButtonText}
+        />
         <View style={styles.headerButtons}>
-          <TouchableOpacity style={styles.editButton} onPress={handleEdit}>
-            <Text style={styles.editButtonText}>수정</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
-            <Text style={styles.deleteButtonText}>삭제</Text>
-          </TouchableOpacity>
+          <NavigationButton
+            title="수정"
+            onPress={handleEdit}
+            variant="primary"
+            fullWidth={false}
+            style={styles.editButton}
+          />
+          <NavigationButton
+            title="삭제"
+            onPress={handleDelete}
+            variant="secondary"
+            fullWidth={false}
+            disabled={isDeleting}
+            style={{ backgroundColor: HIGColors.red }}
+            textStyle={{ color: '#FFFFFF' }}
+          />
         </View>
       </View>
 
@@ -332,7 +431,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#666666',
+    color: Colors.TEXT_SECONDARY,
   },
   errorContainer: {
     flex: 1,
@@ -342,20 +441,15 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#666666',
+    color: Colors.TEXT_SECONDARY,
     textAlign: 'center',
     marginBottom: 20,
   },
   retryButton: {
-    backgroundColor: '#000000',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+    // 공통 스타일로 대체됨
   },
   retryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    // 공통 스타일로 대체됨
   },
   header: {
     flexDirection: 'row',
@@ -367,37 +461,20 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E0E0E0',
   },
   backButton: {
-    padding: 8,
+    backgroundColor: 'transparent',
   },
   backButtonText: {
-    fontSize: 16,
-    color: '#000000',
+    color: HIGColors.blue,
   },
   headerButtons: {
     flexDirection: 'row',
     gap: 12,
   },
   editButton: {
-    backgroundColor: '#000000',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
-  },
-  editButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
+    // 공통 스타일로 대체됨
   },
   deleteButton: {
-    backgroundColor: '#FF4444',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
-  },
-  deleteButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
+    // 공통 스타일로 대체됨
   },
   scrollView: {
     flex: 1,
@@ -429,7 +506,7 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 14,
-    color: '#666666',
+    color: Colors.TEXT_SECONDARY,
     fontWeight: '500',
   },
   infoValue: {
@@ -475,7 +552,7 @@ const styles = StyleSheet.create({
   },
   sensoryLabel: {
     fontSize: 14,
-    color: '#666666',
+    color: Colors.TEXT_SECONDARY,
     width: 60,
     fontWeight: '500',
   },
@@ -512,7 +589,7 @@ const styles = StyleSheet.create({
   },
   scoreLabel: {
     fontSize: 16,
-    color: '#666666',
+    color: Colors.TEXT_SECONDARY,
     marginTop: 4,
   },
   subScores: {
@@ -530,7 +607,7 @@ const styles = StyleSheet.create({
   },
   subScoreLabel: {
     fontSize: 12,
-    color: '#666666',
+    color: Colors.TEXT_SECONDARY,
     marginTop: 4,
   },
 });

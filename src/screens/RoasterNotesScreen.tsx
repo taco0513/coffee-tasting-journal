@@ -1,24 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   StyleSheet,
   SafeAreaView,
   Keyboard,
   TouchableWithoutFeedback,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTastingStore } from '../stores/tastingStore';
+import { NavigationButton } from '../components/common';
+import { Colors } from '../constants/colors';
 
 const RoasterNotesScreen = () => {
   const navigation = useNavigation();
-  const { roasterNotes, setRoasterNotes } = useTastingStore();
-  const [notes, setNotes] = useState(roasterNotes || '');
+  const route = useRoute();
+  const { currentTasting, updateField } = useTastingStore();
+  const scannedRoasterNotes = route.params?.scannedRoasterNotes;
+  
+  // 초기값으로 스캔된 노트 사용
+  const [notes, setNotes] = useState(scannedRoasterNotes || currentTasting.roasterNotes || '');
+  
+  useEffect(() => {
+    if (scannedRoasterNotes) {
+      console.log('스캔된 로스터 노트 적용:', scannedRoasterNotes);
+      setNotes(scannedRoasterNotes);
+    }
+  }, [scannedRoasterNotes]);
 
   const handleNext = () => {
-    setRoasterNotes(notes);
+    updateField('roasterNotes', notes);
     navigation.navigate('FlavorLevel1' as never);
   };
 
@@ -30,9 +42,14 @@ const RoasterNotesScreen = () => {
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <SafeAreaView style={styles.container}>
         {/* Skip Button */}
-        <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
-          <Text style={styles.skipText}>건너뛰기</Text>
-        </TouchableOpacity>
+        <View style={styles.skipButton}>
+          <NavigationButton
+            title="건너뛰기"
+            onPress={handleSkip}
+            variant="text"
+            fullWidth={false}
+          />
+        </View>
 
         {/* Progress Bar */}
         <View style={styles.progressContainer}>
@@ -49,13 +66,18 @@ const RoasterNotesScreen = () => {
 
         {/* Notes Input */}
         <View style={styles.inputContainer}>
+          {scannedRoasterNotes && (
+            <Text style={styles.helperText}>
+              📷 OCR로 인식된 노트가 자동 입력되었습니다
+            </Text>
+          )}
           <TextInput
             style={styles.notesInput}
             multiline
             numberOfLines={6}
             placeholder="로스터가 제공한 맛 설명을 입력하세요
 예: 블루베리, 다크 초콜릿, 꿀"
-            placeholderTextColor="#999"
+            placeholderTextColor={Colors.PLACEHOLDER}
             value={notes}
             onChangeText={setNotes}
             textAlignVertical="top"
@@ -63,9 +85,12 @@ const RoasterNotesScreen = () => {
         </View>
 
         {/* Next Button */}
-        <TouchableOpacity style={styles.button} onPress={handleNext}>
-          <Text style={styles.buttonText}>다음</Text>
-        </TouchableOpacity>
+        <NavigationButton
+          title="다음"
+          onPress={handleNext}
+          variant="primary"
+          style={styles.button}
+        />
       </SafeAreaView>
     </TouchableWithoutFeedback>
   );
@@ -85,7 +110,7 @@ const styles = StyleSheet.create({
   },
   skipText: {
     fontSize: 16,
-    color: '#666',
+    color: Colors.TEXT_SECONDARY,
   },
   progressContainer: {
     flexDirection: 'row',
@@ -136,6 +161,13 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
+  },
+  helperText: {
+    fontSize: 14,
+    color: Colors.PRIMARY,
+    marginBottom: 12,
+    textAlign: 'center',
+    fontWeight: '500',
   },
 });
 

@@ -9,17 +9,33 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTastingStore } from '../../stores/tastingStore';
+import {
+  hitSlop,
+  HIGColors,
+  HIGConstants,
+} from '../../styles/common';
+import { NavigationButton } from '../../components/common';
+import { FONT_SIZE } from '../../constants/typography';
+import { Colors } from '../../constants/colors';
+
+interface FlavorPath {
+  level1?: string;
+  level2?: string;
+  level3?: string;
+  level4?: string;
+}
 import { flavorLevel3 } from '../../data/flavorWheel';
 
 const FlavorLevel3Screen = () => {
   const navigation = useNavigation();
-  const { selectedFlavors, setFlavorLevel } = useTastingStore();
+  const { selectedFlavors, setSelectedFlavors } = useTastingStore();
   const [selectedLevel3, setSelectedLevel3] = useState<string[]>(
-    selectedFlavors?.level3 || []
+    selectedFlavors?.map(f => f.level3).filter(Boolean) || []
   );
 
   // Group level3 options by their parent level2 category
-  const categorizedLevel3 = selectedFlavors.level2.reduce((acc, level2Item) => {
+  const level2Categories = selectedFlavors?.map(f => f.level2).filter(Boolean) || [];
+  const categorizedLevel3 = level2Categories.reduce((acc, level2Item) => {
     const level3Options = flavorLevel3[level2Item as keyof typeof flavorLevel3] || [];
     if (level3Options.length > 0) {
       acc[level2Item] = level3Options;
@@ -31,9 +47,9 @@ const FlavorLevel3Screen = () => {
   const hasLevel3Options = Object.keys(categorizedLevel3).length > 0;
 
   useEffect(() => {
-    // If no level3 options exist, skip to Sensory screen
+    // If no level3 options exist, skip to FlavorLevel4 screen
     if (!hasLevel3Options) {
-      navigation.navigate('Sensory' as never);
+      navigation.navigate('FlavorLevel4' as never);
     }
   }, [hasLevel3Options, navigation]);
 
@@ -48,12 +64,29 @@ const FlavorLevel3Screen = () => {
   };
 
   const handleNext = () => {
-    setFlavorLevel(3, selectedLevel3);
+    // 기존 FlavorPath들을 바탕으로 Level 3 추가
+    const newFlavors: FlavorPath[] = [];
+    
+    selectedFlavors?.forEach(flavor => {
+      const relatedLevel3 = selectedLevel3.filter(level3 => 
+        (flavorLevel3[flavor.level2 as keyof typeof flavorLevel3] || []).includes(level3)
+      );
+      
+      if (relatedLevel3.length > 0) {
+        relatedLevel3.forEach(level3 => {
+          newFlavors.push({ ...flavor, level3 });
+        });
+      } else {
+        newFlavors.push(flavor);
+      }
+    });
+    
+    setSelectedFlavors(newFlavors);
     navigation.navigate('FlavorLevel4' as never);
   };
 
   const handleSkip = () => {
-    navigation.navigate('Sensory' as never);
+    navigation.navigate('FlavorLevel4' as never);
   };
 
   const isNextEnabled = selectedLevel3.length > 0;
@@ -66,9 +99,14 @@ const FlavorLevel3Screen = () => {
   return (
     <SafeAreaView style={styles.container}>
       {/* Skip Button */}
-      <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
-        <Text style={styles.skipText}>건너뛰기</Text>
-      </TouchableOpacity>
+      <View style={styles.skipButton}>
+        <NavigationButton
+          title="건너뛰기"
+          onPress={handleSkip}
+          variant="text"
+          fullWidth={false}
+        />
+      </View>
 
       {/* Progress Bar */}
       <View style={styles.progressContainer}>
@@ -98,6 +136,7 @@ const FlavorLevel3Screen = () => {
                     selectedLevel3.includes(item) && styles.selectedButton,
                   ]}
                   onPress={() => handleLevel3Press(item)}
+                  hitSlop={hitSlop.small}
                 >
                   <Text
                     style={[
@@ -107,6 +146,16 @@ const FlavorLevel3Screen = () => {
                   >
                     {item}
                   </Text>
+                  {selectedLevel3.includes(item) && (
+                    <Text style={{
+                      position: 'absolute',
+                      top: 5,
+                      right: 5,
+                      color: 'white',
+                      fontSize: 16,
+                      fontWeight: 'bold'
+                    }}>✓</Text>
+                  )}
                 </TouchableOpacity>
               ))}
             </View>
@@ -115,23 +164,13 @@ const FlavorLevel3Screen = () => {
       </ScrollView>
 
       {/* Next Button */}
-      <TouchableOpacity
-        style={[
-          styles.button,
-          !isNextEnabled && styles.disabledButton,
-        ]}
+      <NavigationButton
+        title="다음"
         onPress={handleNext}
         disabled={!isNextEnabled}
-      >
-        <Text
-          style={[
-            styles.buttonText,
-            !isNextEnabled && styles.disabledButtonText,
-          ]}
-        >
-          다음
-        </Text>
-      </TouchableOpacity>
+        variant="primary"
+        style={styles.nextButton}
+      />
     </SafeAreaView>
   );
 };
@@ -150,7 +189,7 @@ const styles = StyleSheet.create({
   },
   skipText: {
     fontSize: 16,
-    color: '#666',
+    color: Colors.TEXT_SECONDARY,
   },
   progressContainer: {
     flexDirection: 'row',
@@ -158,27 +197,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 60,
     marginBottom: 40,
-    gap: 8,
+    gap: HIGConstants.SPACING_SM,
   },
   progressDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: HIGColors.gray4,
   },
   activeDot: {
-    backgroundColor: '#8B4513',
+    backgroundColor: HIGColors.blue,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#333',
+    color: HIGColors.label,
     textAlign: 'center',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: HIGColors.secondaryLabel,
     textAlign: 'center',
     marginBottom: 30,
   },
@@ -191,7 +230,7 @@ const styles = StyleSheet.create({
   sectionHeader: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#333',
+    color: HIGColors.label,
     marginBottom: 12,
     paddingHorizontal: 4,
   },
@@ -202,44 +241,33 @@ const styles = StyleSheet.create({
     marginHorizontal: -6,
   },
   itemButton: {
-    backgroundColor: '#fff',
+    minHeight: HIGConstants.MIN_TOUCH_TARGET,
+    backgroundColor: HIGColors.systemBackground,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    margin: 6,
+    borderColor: HIGColors.gray4,
+    borderRadius: HIGConstants.BORDER_RADIUS_LARGE,
+    paddingHorizontal: HIGConstants.SPACING_LG,
+    paddingVertical: HIGConstants.SPACING_MD,
+    margin: HIGConstants.SPACING_XS,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   selectedButton: {
-    backgroundColor: '#000',
-    borderColor: '#000',
+    backgroundColor: HIGColors.blue,
+    borderColor: HIGColors.blue,
   },
   itemText: {
-    fontSize: 16,
+    fontSize: HIGConstants.FONT_SIZE_MEDIUM,
     fontWeight: '500',
-    color: '#000',
+    color: HIGColors.label,
+    textAlign: 'center',
   },
   selectedText: {
-    color: '#fff',
+    color: '#FFFFFF',
   },
-  button: {
-    backgroundColor: '#8B4513',
-    paddingVertical: 16,
-    borderRadius: 30,
-    alignItems: 'center',
+  nextButton: {
     marginBottom: 40,
     marginTop: 20,
-  },
-  disabledButton: {
-    backgroundColor: '#e0e0e0',
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  disabledButtonText: {
-    color: '#999',
   },
 });
 

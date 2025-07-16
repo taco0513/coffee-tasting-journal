@@ -1,370 +1,144 @@
-import { create } from 'zustand';
-import { calculateMatchScore } from '../utils/matching';
-import { realmService } from '../services/realm';
-import { ITastingRecord } from '../services/realm/schemas';
+import {create} from 'zustand';
+import RealmService from '../services/realm/RealmService';
 
-// TypeScript types for the tasting data
-export interface CoffeeInfo {
-  cafeName: string;
-  roastery: string;
-  coffeeName: string;
-  origin: string;
-  variety: string;
-  altitude: string;
-  process: string;
-  temperature: 'hot' | 'ice';
-  roasterNotes: string;
+interface FlavorPath {
+  level1?: string;
+  level2?: string;
+  level3?: string;
+  level4?: string;
 }
 
-export interface SelectedFlavors {
-  level1: string[];
-  level2: string[];
-  level3: string[];
-  level4: string[];
-}
-
-export interface SensoryAttributes {
-  body: number;
-  acidity: number;
-  sweetness: number;
-  finish: number;
-  mouthfeel: 'Clean' | 'Creamy' | 'Juicy' | 'Silky';
-}
-
-export interface TastingRecord {
-  id: string;
-  timestamp: string;
-  coffeeInfo: CoffeeInfo;
-  roasterNotes: string;
-  selectedFlavors: SelectedFlavors;
-  sensoryAttributes: SensoryAttributes;
-  matchScore: {
-    total: number;
-    flavorScore: number;
-    sensoryScore: number;
-  };
-}
-
-export interface TastingState {
-  currentTasting: CoffeeInfo;
-  currentStep: number;
-  selectedFlavors: SelectedFlavors;
-  roasterNotes: string;
-  sensoryAttributes: SensoryAttributes;
-  currentMatchScore: number;
-  recentTastings: ITastingRecord[];
-  isLoading: boolean;
-  error: string | null;
-}
-
-export interface TastingActions {
-  updateCoffeeInfo: (coffeeInfo: Partial<CoffeeInfo>) => void;
-  reset: () => void;
-  setCurrentStep: (step: number) => void;
-  setFlavorLevel: (level: number, flavors: string[]) => void;
-  clearFlavors: () => void;
-  setRoasterNotes: (notes: string) => void;
-  updateSensoryAttributes: (attributes: Partial<SensoryAttributes>) => void;
-  saveTasting: () => TastingRecord;
-  completeTasting: () => Promise<{ success: boolean; error?: string; record?: ITastingRecord }>;
-  loadRecentTastings: () => Promise<void>;
-  initializeRealm: () => Promise<void>;
-  clearAllTastings: () => Promise<void>;
-  // Deprecated - use setFlavorLevel instead
-  setFlavorLevel1: (flavors: string[]) => void;
-}
-
-export type TastingStore = TastingState & TastingActions;
-
-// Initial state
-const initialCoffeeInfo: CoffeeInfo = {
-  cafeName: '',
-  roastery: '',
-  coffeeName: '',
-  origin: '',
-  variety: '',
-  altitude: '',
-  process: '',
-  temperature: 'hot',
-  roasterNotes: '',
-};
-
-const initialSelectedFlavors: SelectedFlavors = {
-  level1: [],
-  level2: [],
-  level3: [],
-  level4: [],
-};
-
-const initialSensoryAttributes: SensoryAttributes = {
-  body: 3,
-  acidity: 3,
-  sweetness: 3,
-  finish: 3,
-  mouthfeel: 'Clean',
-};
-
-const initialState: TastingState = {
-  currentTasting: initialCoffeeInfo,
-  currentStep: 1,
-  selectedFlavors: initialSelectedFlavors,
-  roasterNotes: '',
-  sensoryAttributes: initialSensoryAttributes,
-  currentMatchScore: 0,
-  recentTastings: [],
-  isLoading: false,
-  error: null,
-};
-
-// Create the Zustand store
-export const useTastingStore = create<TastingStore>((set) => ({
-  ...initialState,
+interface TastingState {
+  currentTasting: any;
+  selectedFlavors: FlavorPath[];
+  matchScore: number | null;
   
-  updateCoffeeInfo: (coffeeInfo: Partial<CoffeeInfo>) =>
+  updateField: (field: string, value: any) => void;
+  setSelectedFlavors: (flavors: FlavorPath[]) => void;
+  saveTasting: () => void;
+  calculateMatchScore: () => void;
+  reset: () => void;
+}
+
+export const useTastingStore = create<TastingState>((set, get) => ({
+  currentTasting: {
+    cafeName: '',
+    roastery: '',
+    coffeeName: '',
+    origin: '',
+    variety: '',
+    process: '',
+    altitude: '',
+    temperature: 'hot',
+    roasterNotes: '',
+    body: 3,
+    acidity: 3,
+    sweetness: 3,
+    finish: 3,
+    mouthfeel: 'Clean',
+  },
+  selectedFlavors: [],
+  matchScore: null,
+
+  updateField: (field, value) =>
     set((state) => ({
       currentTasting: {
         ...state.currentTasting,
-        ...coffeeInfo,
+        [field]: value,
       },
     })),
-  
-  reset: () => set(initialState),
-  
-  setCurrentStep: (step: number) =>
-    set({ currentStep: step }),
-  
-  setFlavorLevel: (level: number, flavors: string[]) =>
-    set((state) => ({
-      selectedFlavors: {
-        ...state.selectedFlavors,
-        [`level${level}`]: flavors,
-      },
+
+  setSelectedFlavors: (flavors) =>
+    set(() => ({
+      selectedFlavors: flavors,
     })),
-  
-  clearFlavors: () =>
-    set({ selectedFlavors: initialSelectedFlavors }),
-  
-  setRoasterNotes: (notes: string) =>
-    set({ roasterNotes: notes }),
-  
-  updateSensoryAttributes: (attributes: Partial<SensoryAttributes>) =>
-    set((state) => ({
-      sensoryAttributes: {
-        ...state.sensoryAttributes,
-        ...attributes,
-      },
-    })),
-  
+
   saveTasting: () => {
-    // Deprecated - use completeTasting instead
-    const state = useTastingStore.getState();
-    const matchScore = calculateMatchScore(
-      state.roasterNotes,
-      state.selectedFlavors,
-      state.sensoryAttributes
-    );
-    
-    const tastingRecord: TastingRecord = {
-      id: `tasting_${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      coffeeInfo: state.currentTasting,
-      roasterNotes: state.roasterNotes,
-      selectedFlavors: state.selectedFlavors,
-      sensoryAttributes: state.sensoryAttributes,
-      matchScore,
+    const state = get();
+    const {currentTasting, selectedFlavors} = state;
+
+    // sensoryAttributes 구조 생성
+    const sensoryAttributes = {
+      body: currentTasting.body || 3,
+      acidity: currentTasting.acidity || 3,
+      sweetness: currentTasting.sweetness || 3,
+      finish: currentTasting.finish || 3,
+      mouthfeel: currentTasting.mouthfeel || 'Clean',
     };
-    
-    set({ currentMatchScore: matchScore.total });
-    return tastingRecord;
-  },
 
-  completeTasting: async () => {
-    const state = useTastingStore.getState();
-    
-    // Set loading state
-    set({ isLoading: true, error: null });
-    
+    console.log('Saving tasting data:');
+    console.log('- currentTasting:', currentTasting);
+    console.log('- selectedFlavors:', selectedFlavors);
+    console.log('- sensoryAttributes:', sensoryAttributes);
+
     try {
-      // Ensure Realm is initialized
-      await useTastingStore.getState().initializeRealm();
-      
-      // Calculate match score
-      const matchScore = calculateMatchScore(
-        state.roasterNotes,
-        state.selectedFlavors,
-        state.sensoryAttributes
-      );
-      
-      // Prepare data for saving
-      const tastingData = {
+      RealmService.getInstance().saveTasting({
         coffeeInfo: {
-          cafeName: state.currentTasting.cafeName || undefined,
-          roastery: state.currentTasting.roastery,
-          coffeeName: state.currentTasting.coffeeName,
-          origin: state.currentTasting.origin || undefined,
-          variety: state.currentTasting.variety || undefined,
-          altitude: state.currentTasting.altitude || undefined,
-          process: state.currentTasting.process || undefined,
-          temperature: state.currentTasting.temperature,
+          cafeName: currentTasting.cafeName,
+          roastery: currentTasting.roasterName,
+          coffeeName: currentTasting.coffeeName,
+          origin: currentTasting.origin,
+          variety: currentTasting.variety,
+          altitude: currentTasting.altitude,
+          process: currentTasting.process,
+          temperature: currentTasting.temperature || 'hot',
         },
-        roasterNotes: state.roasterNotes || undefined,
-        selectedFlavors: state.selectedFlavors,
-        sensoryAttributes: state.sensoryAttributes,
+        roasterNotes: currentTasting.roasterNotes,
+        selectedFlavors: selectedFlavors,
+        sensoryAttributes: sensoryAttributes,
         matchScore: {
-          total: matchScore.total,
-          flavorScore: matchScore.flavorScore,
-          sensoryScore: matchScore.sensoryScore,
+          total: state.matchScore || 0,
+          flavorScore: 0, // TODO: 실제 계산 로직 추가
+          sensoryScore: 0, // TODO: 실제 계산 로직 추가
         },
-      };
-      
-      // Save to Realm
-      const savedRecord = await realmService.saveTasting(tastingData);
-      
-      // Update state
-      set({ 
-        currentMatchScore: matchScore.total,
-        isLoading: false,
-        error: null,
       });
-      
-      // Reload recent tastings
-      await useTastingStore.getState().loadRecentTastings();
-      
-      console.log('Tasting completed and saved:', savedRecord.id);
-      
-      return {
-        success: true,
-        record: savedRecord,
-      };
-      
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to save tasting';
-      console.error('Error completing tasting:', error);
-      
-      set({ 
-        isLoading: false,
-        error: errorMessage,
-      });
-      
-      return {
-        success: false,
-        error: errorMessage,
-      };
-    }
-  },
 
-  loadRecentTastings: async () => {
-    set({ isLoading: true, error: null });
-    
-    try {
-      // Ensure Realm is initialized
-      await useTastingStore.getState().initializeRealm();
-      
-      // Load recent tastings
-      const recentTastings = realmService.getRecentTastings(10);
-      
-      // Convert Realm objects to plain objects for state
-      const tastings = recentTastings.map(record => ({
-        id: record.id,
-        userId: record.userId,
-        createdAt: record.createdAt,
-        updatedAt: record.updatedAt,
-        syncedAt: record.syncedAt,
-        cafeName: record.cafeName,
-        roastery: record.roastery,
-        coffeeName: record.coffeeName,
-        origin: record.origin,
-        variety: record.variety,
-        altitude: record.altitude,
-        process: record.process,
-        temperature: record.temperature,
-        roasterNotes: record.roasterNotes,
-        matchScoreTotal: record.matchScoreTotal,
-        matchScoreFlavor: record.matchScoreFlavor,
-        matchScoreSensory: record.matchScoreSensory,
-        flavorNotes: record.flavorNotes.map(note => ({
-          level: note.level,
-          value: note.value,
-          koreanValue: note.koreanValue,
-        })),
-        sensoryAttribute: {
-          body: record.sensoryAttribute.body,
-          acidity: record.sensoryAttribute.acidity,
-          sweetness: record.sensoryAttribute.sweetness,
-          finish: record.sensoryAttribute.finish,
-          mouthfeel: record.sensoryAttribute.mouthfeel,
-        },
-        isSynced: record.isSynced,
-        isDeleted: record.isDeleted,
-      }));
-      
-      set({ 
-        recentTastings: tastings,
-        isLoading: false,
-        error: null,
-      });
-      
-      console.log(`Loaded ${tastings.length} recent tastings`);
-      
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to load recent tastings';
-      console.error('Error loading recent tastings:', error);
-      
-      set({ 
-        recentTastings: [],
-        isLoading: false,
-        error: errorMessage,
-      });
-    }
-  },
+      console.log('Tasting saved successfully');
 
-  initializeRealm: async () => {
-    try {
-      await realmService.initialize();
-      console.log('Realm initialized from store');
+      // 저장 후 점수 계산
+      state.calculateMatchScore();
     } catch (error) {
-      console.error('Failed to initialize Realm from store:', error);
+      console.error('Error saving tasting:', error);
       throw error;
     }
   },
 
-  clearAllTastings: async () => {
-    set({ isLoading: true, error: null });
+  calculateMatchScore: () => {
+    const {currentTasting, selectedFlavors} = get();
     
-    try {
-      // Ensure Realm is initialized
-      await useTastingStore.getState().initializeRealm();
-      
-      // Clear all tastings from Realm
-      realmService.clearAllTastings();
-      
-      // Clear state
-      set({ 
-        recentTastings: [],
-        isLoading: false,
-        error: null,
-      });
-      
-      console.log('All tastings cleared successfully');
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to clear all tastings';
-      console.error('Error clearing all tastings:', error);
-      
-      set({ 
-        isLoading: false,
-        error: errorMessage,
-      });
-      
-      throw error;
+    // 여기서 매칭 점수 계산 로직
+    let flavorScore = 0;
+    if (currentTasting.roasterNotes && selectedFlavors.length > 0) {
+      // 간단한 예시 로직
+      flavorScore = 70; // 실제로는 복잡한 계산
     }
+    
+    const sensoryScore = 80; // 실제로는 감각 평가 기반 계산
+    
+    const totalScore = Math.round(flavorScore * 0.6 + sensoryScore * 0.4);
+    
+    set({ matchScore: totalScore });
   },
-  
-  // Deprecated - use setFlavorLevel instead
-  setFlavorLevel1: (flavors: string[]) =>
-    set((state) => ({
-      selectedFlavors: {
-        ...state.selectedFlavors,
-        level1: flavors,
+
+  reset: () =>
+    set({
+      currentTasting: {
+        cafeName: '',
+        roasterName: '',
+        coffeeName: '',
+        origin: '',
+        variety: '',
+        process: '',
+        altitude: '',
+        temperature: 'hot',
+        roasterNotes: '',
+        body: 3,
+        acidity: 3,
+        sweetness: 3,
+        finish: 3,
+        mouthfeel: 'Clean',
       },
-    })),
+      selectedFlavors: [],
+      matchScore: null,
+    }),
 }));
